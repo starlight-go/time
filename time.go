@@ -2,11 +2,64 @@
 package time
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/skylark"
 	"github.com/google/skylark/syntax"
 )
+
+// Now returns the current Time.
+func Now(_ *skylark.Thread, _ *skylark.Builtin, args skylark.Tuple, kwargs []skylark.Tuple) (skylark.Value, error) {
+	if len(args) != 0 {
+		return nil, errors.New("too many args")
+	}
+	if len(kwargs) != 0 {
+		return nil, errors.New("too many kwargs")
+	}
+	return Time(time.Now()), nil
+}
+
+// Delta returns a duration created from kwargs.  Expected "hours", "minutes",
+// "seconds", "milliseconds", or "nanoseconds", and assigned an int.
+func Delta(_ *skylark.Thread, _ *skylark.Builtin, args skylark.Tuple, kwargs []skylark.Tuple) (skylark.Value, error) {
+	if len(args) != 0 {
+		return nil, errors.New("too many args")
+	}
+	var d time.Duration
+	for _, t := range kwargs {
+		if len(t) != 2 {
+			panic("invalid kwarg")
+		}
+		s, ok := t[0].(skylark.String)
+		if !ok {
+			panic("invalid kwarg name")
+		}
+		i, ok := t[1].(skylark.Int)
+		if !ok {
+			return nil, errors.New("invalid value for timedelta arg, must be int")
+		}
+		v, ok := i.Int64()
+		if !ok {
+			return nil, errors.New("numeric value overflows int64")
+		}
+		switch s {
+		case "hours":
+			d += time.Hour * time.Duration(v)
+		case "minutes":
+			d += time.Minute * time.Duration(v)
+		case "seconds":
+			d += time.Second * time.Duration(v)
+		case "milliseconds":
+			d += time.Millisecond * time.Duration(v)
+		case "nanoseconds":
+			d += time.Nanosecond * time.Duration(v)
+		default:
+			return nil, errors.New("invalid duration unit: " + string(s))
+		}
+	}
+	return Duration(d), nil
+}
 
 // Time is the type of a Skylark time.Time.
 type Time time.Time
